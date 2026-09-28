@@ -1,0 +1,12 @@
+format 1
+canvas 26 12
+rule nonzero
+filled 117
+row 2 2-10 15-23
+row 3 2-10 15-23
+row 4 2-10 15-17 21-23
+row 5 2-10 15-17 21-23
+row 6 2-10 15-17 21-23
+row 7 2-10 15-23
+row 8 2-10 15-23
+hash 0x84fec4b40e661d2e

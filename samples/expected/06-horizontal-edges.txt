@@ -1,0 +1,14 @@
+format 1
+canvas 28 18
+rule even-odd
+filled 141
+row 2 3-23
+row 7 3-18
+row 8 3-18
+row 9 3-18
+row 10 3-18
+row 11 3-18
+row 14 3-20
+row 15 7-20
+row 16 13-20
+hash 0xe2c8d59e9866a859
