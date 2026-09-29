@@ -121,8 +121,12 @@ hash 0x<16 位小写十六进制>
 
 每组 `samples/polygons/<name>.json` 对应同名 `samples/expected/<name>.txt`；`samples/notes.md` 是现场记录。
 
-## 7. 待补的文档
+## 7. 附注
 
-- 自动比对脚本（第 5 节第 1、2 项的逐字节比对命令）尚未提供。
+- 自动比对脚本为 `check_samples.py`（第 5 节第 1、2 项：逐样例运行 `fill.py`，
+  标准输出与 `--out` 文件同 `samples/expected/**` 逐字节比对）。
+- 单元与验收测试为 `test_fill.py`（`python3 -m unittest test_fill`）。
+- `viewer.html` 由 `gen_viewer.py` 生成：重跑样例、刷新内联数据与耗时用
+  `python3 gen_viewer.py`。
 - 基准输入的生成参数与验收机器的固定配置尚未固化，先按第 5 节预算执行。
 - 页面配色、缩放与悬停提示自定；只有 4.3 的 `data-pixel`、`?sample=` 与「只画结果」口径固定。
