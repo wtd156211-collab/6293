@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>扫描线填充查看器</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; color: #222; }
+  header { padding: 10px 16px; border-bottom: 1px solid #ddd; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  nav a { margin-right: 8px; font-size: 12px; color: #2f6fdb; text-decoration: none; }
+  nav a.current { font-weight: 700; color: #111; border-bottom: 2px solid #2f6fdb; }
+  main { display: flex; gap: 20px; padding: 16px; align-items: flex-start; }
+  svg { background: #fff; border: 1px solid #eee; flex: none; }
+  .bg { fill: #ffffff; }
+  .px { fill: #2f6fdb; }
+  .px:hover { fill: #e8871a; }
+  .outside { fill: none; stroke: #b5b5b5; stroke-width: 0.14; stroke-dasharray: 0.7 0.45; }
+  .clipped { fill: none; stroke: #d2342c; stroke-width: 0.18; }
+  .canvas-border { fill: none; stroke: #333; stroke-width: 0.12; }
+  aside { font-size: 13px; min-width: 240px; }
+  table { border-collapse: collapse; }
+  td { padding: 2px 10px 2px 0; vertical-align: top; }
+  td:first-child { color: #666; white-space: nowrap; }
+  .legend { margin-top: 12px; }
+  .legend div { margin: 2px 0; }
+  .swatch { display: inline-block; width: 22px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  #hover { color: #666; margin-top: 8px; min-height: 1.2em; }
+  .bad { color: #d2342c; font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>扫描线填充查看器</h1>
+  <nav id="sample-nav"></nav>
+</header>
+<main>
+  <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+  <aside>
+    <table id="stats"></table>
+    <div class="legend">
+      <div><span class="swatch" style="border-color:#2f6fdb"></span>填充像素（引擎结果）</div>
+      <div><span class="swatch" style="border-color:#d2342c"></span>轮廓（画布内部分）</div>
+      <div><span class="swatch" style="border-color:#b5b5b5;border-top-style:dashed"></span>被裁掉的部分（画布外，虚线）</div>
+      <div><span class="swatch" style="border-color:#333"></span>画布边界</div>
+    </div>
+    <div id="hover"></div>
+  </aside>
+</main>
+<script>
+"use strict";
+/* 数据由 build_viewer.py 运行 fill.py 引擎生成并内联；页面只画结果，不另算规则。 */
+const SAMPLES = [{"name":"01-concave","canvas":[24,16],"rule":"even-odd","contours":[[[2,2],[14,2],[14,6],[7,6],[7,13],[2,13]],[[16,3],[22,3],[22,12],[19,12],[19,7],[18,7],[18,12],[16,12]]],"rows":[[2,[[2,13]]],[3,[[2,13],[16,21]]],[4,[[2,13],[16,21]]],[5,[[2,13],[16,21]]],[6,[[2,6],[16,21]]],[7,[[2,6],[16,17],[19,21]]],[8,[[2,6],[16,17],[19,21]]],[9,[[2,6],[16,17],[19,21]]],[10,[[2,6],[16,17],[19,21]]],[11,[[2,6],[16,17],[19,21]]],[12,[[2,6]]]],"filled":132,"elapsedMs":0.023},{"name":"02-ring-holes","canvas":[28,20],"rule":"even-odd","contours":[[[1,1],[26,1],[26,18],[1,18]],[[5,4],[12,4],[12,9],[5,9]],[[16,6],[24,6],[20,15]]],"rows":[[1,[[1,25]]],[2,[[1,25]]],[3,[[1,25]]],[4,[[1,4],[12,25]]],[5,[[1,4],[12,25]]],[6,[[1,4],[12,15],[24,25]]],[7,[[1,4],[12,16],[24,25]]],[8,[[1,4],[12,16],[24,25]]],[9,[[1,17],[23,25]]],[10,[[1,17],[23,25]]],[11,[[1,18],[22,25]]],[12,[[1,18],[22,25]]],[13,[[1,19],[21,25]]],[14,[[1,19],[21,25]]],[15,[[1,25]]],[16,[[1,25]]],[17,[[1,25]]]],"filled":350,"elapsedMs":0.034},{"name":"03-pentagram-evenodd","canvas":[26,24],"rule":"even-odd","contours":[[[12,2],[18,20],[2,9],[22,9],[6,20]]],"rows":[[3,[[12,12]]],[4,[[12,12]]],[5,[[11,12]]],[6,[[11,13]]],[7,[[11,13]]],[8,[[10,13]]],[9,[[2,9],[15,21]]],[10,[[4,9],[15,20]]],[11,[[5,8],[15,19]]],[12,[[7,8],[16,17]]],[13,[[8,8],[16,16]]],[14,[[8,9],[15,15]]],[15,[[8,10],[14,16]]],[16,[[8,11],[13,16]]],[17,[[7,10],[14,16]]],[18,[[7,8],[16,17]]],[19,[[7,7],[17,17]]]],"filled":86,"elapsedMs":0.024},{"name":"04-pentagram-nonzero","canvas":[26,24],"rule":"nonzero","contours":[[[12,2],[18,20],[2,9],[22,9],[6,20]]],"rows":[[3,[[12,12]]],[4,[[12,12]]],[5,[[11,12]]],[6,[[11,13]]],[7,[[11,13]]],[8,[[10,13]]],[9,[[2,21]]],[10,[[4,20]]],[11,[[5,19]]],[12,[[7,17]]],[13,[[8,16]]],[14,[[8,15]]],[15,[[8,16]]],[16,[[8,11],[13,16]]],[17,[[7,10],[14,16]]],[18,[[7,8],[16,17]]],[19,[[7,7],[17,17]]]],"filled":124,"elapsedMs":0.027},{"name":"05-scanline-vertices","canvas":[30,18],"rule":"even-odd","contours":[[[2,2],[16,2],[16,15],[13,15],[13,4],[10,4],[10,15],[7,15],[7,4],[4,4],[4,15],[2,15]],[[20,5],[28,5],[24,13]],[[20,16],[24,12],[28,16],[24,14]]],"rows":[[2,[[2,15]]],[3,[[2,15]]],[4,[[2,3],[7,9],[13,15]]],[5,[[2,3],[7,9],[13,15],[20,27]]],[6,[[2,3],[7,9],[13,15],[21,27]]],[7,[[2,3],[7,9],[13,15],[21,26]]],[8,[[2,3],[7,9],[13,15],[22,26]]],[9,[[2,3],[7,9],[13,15],[22,25]]],[10,[[2,3],[7,9],[13,15],[23,25]]],[11,[[2,3],[7,9],[13,15],[23,24]]],[12,[[2,3],[7,9],[13,15],[24,24]]],[13,[[2,3],[7,9],[13,15],[23,24]]],[14,[[2,3],[7,9],[13,15],[22,25]]],[15,[[21,21],[26,26]]]],"filled":160,"elapsedMs":0.038},{"name":"06-horizontal-edges","canvas":[28,18],"rule":"even-odd","contours":[[[3,2],[14,2],[14,2],[24,2],[24,3],[3,3]],[[3,7],[11,7],[11,12],[3,12]],[[11,7],[19,7],[19,12],[11,12]],[[3,14],[21,14],[21,17],[13,17],[13,16],[7,16],[7,15],[3,15]]],"rows":[[2,[[3,23]]],[7,[[3,18]]],[8,[[3,18]]],[9,[[3,18]]],[10,[[3,18]]],[11,[[3,18]]],[14,[[3,20]]],[15,[[7,20]]],[16,[[13,20]]]],"filled":141,"elapsedMs":0.012},{"name":"07-thin-sliver","canvas":[30,20],"rule":"even-odd","contours":[[[2,1],[3,1],[13,18],[12,18]],[[17,3],[18,3],[17,18]],[[26,2],[27,2],[27,19],[26,19]]],"rows":[[1,[[2,2]]],[2,[[3,3],[26,26]]],[3,[[4,4],[17,17],[26,26]]],[4,[[4,4],[17,17],[26,26]]],[5,[[5,5],[17,17],[26,26]]],[6,[[5,5],[17,17],[26,26]]],[7,[[6,6],[17,17],[26,26]]],[8,[[7,7],[17,17],[26,26]]],[9,[[7,7],[17,17],[26,26]]],[10,[[8,8],[17,17],[26,26]]],[11,[[8,8],[17,17],[26,26]]],[12,[[9,9],[17,17],[26,26]]],[13,[[10,10],[17,17],[26,26]]],[14,[[10,10],[17,17],[26,26]]],[15,[[11,11],[17,17],[26,26]]],[16,[[11,11],[17,17],[26,26]]],[17,[[12,12],[17,17],[26,26]]],[18,[[26,26]]]],"filled":49,"elapsedMs":0.038},{"name":"08-clipped-canvas","canvas":[24,14],"rule":"even-odd","contours":[[[-5,-3],[9,-3],[9,8],[-5,8]],[[30,-6],[40,-6],[40,2],[30,2]],[[12,2],[30,2],[30,16],[12,16]],[[18,6],[34,6],[34,10],[18,10]],[[-3,11],[5,11],[1,20]]],"rows":[[0,[[0,8]]],[1,[[0,8]]],[2,[[0,8],[12,23]]],[3,[[0,8],[12,23]]],[4,[[0,8],[12,23]]],[5,[[0,8],[12,23]]],[6,[[0,8],[12,17]]],[7,[[0,8],[12,17]]],[8,[[12,17]]],[9,[[12,17]]],[10,[[12,23]]],[11,[[0,4],[12,23]]],[12,[[0,4],[12,23]]],[13,[[0,4],[12,23]]]],"filled":207,"elapsedMs":0.025},{"name":"09-nested-nonzero","canvas":[26,12],"rule":"nonzero","contours":[[[2,2],[11,2],[11,9],[2,9]],[[5,4],[8,4],[8,7],[5,7]],[[15,2],[24,2],[24,9],[15,9]],[[18,4],[18,7],[21,7],[21,4]]],"rows":[[2,[[2,10],[15,23]]],[3,[[2,10],[15,23]]],[4,[[2,10],[15,17],[21,23]]],[5,[[2,10],[15,17],[21,23]]],[6,[[2,10],[15,17],[21,23]]],[7,[[2,10],[15,23]]],[8,[[2,10],[15,23]]]],"filled":117,"elapsedMs":0.016}];
+const DEFAULT_SAMPLE = "01-concave";
+const TIMING_RUNS = 5;
+
+function pickSample() {
+  const name = new URLSearchParams(location.search).get("sample") || DEFAULT_SAMPLE;
+  return SAMPLES.find((s) => s.name === name) || null;
+}
+
+function buildNav(current) {
+  const nav = document.getElementById("sample-nav");
+  for (const s of SAMPLES) {
+    const a = document.createElement("a");
+    a.href = "?sample=" + encodeURIComponent(s.name);
+    a.textContent = s.name;
+    if (current && s.name === current.name) a.classList.add("current");
+    nav.appendChild(a);
+  }
+}
+
+function statRows(sample, pixelCount) {
+  const rows = [
+    ["样例", sample.name],
+    ["画布", sample.canvas[0] + " × " + sample.canvas[1]],
+    ["填充规则", sample.rule],
+    ["填充像素数", String(sample.filled)],
+    ["引擎耗时", sample.elapsedMs.toFixed(3) + " ms（fill.py 单次填充，" + TIMING_RUNS + " 次取中位）"],
+  ];
+  const ok = pixelCount === sample.filled;
+  rows.push(["自检", ok
+    ? "data-pixel 数 " + pixelCount + " = filled ✓"
+    : "data-pixel 数 " + pixelCount + " ≠ filled " + sample.filled + " ✗"]);
+  return { rows, ok };
+}
+
+function render(sample) {
+  const stage = document.getElementById("stage");
+  const stats = document.getElementById("stats");
+  if (!sample) {
+    stage.replaceChildren();
+    stats.innerHTML = "";
+    document.getElementById("hover").textContent = "未知样例，请从上方导航选择。";
+    return;
+  }
+  const W = sample.canvas[0], H = sample.canvas[1];
+  let minX = 0, minY = 0, maxX = W, maxY = H;
+  for (const contour of sample.contours) {
+    for (const p of contour) {
+      if (p[0] < minX) minX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  const pad = 2;
+  const vbX = minX - pad, vbY = minY - pad;
+  const vbW = maxX - minX + 2 * pad, vbH = maxY - minY + 2 * pad;
+  const unit = Math.max(4, Math.min(28, 960 / vbW, 640 / vbH));
+  stage.setAttribute("viewBox", vbX + " " + vbY + " " + vbW + " " + vbH);
+  stage.setAttribute("width", Math.round(vbW * unit));
+  stage.setAttribute("height", Math.round(vbH * unit));
+
+  const parts = [];
+  parts.push('<rect class="bg" x="' + vbX + '" y="' + vbY + '" width="' + vbW + '" height="' + vbH + '"/>');
+  const pointStrings = sample.contours.map((c) => c.map((p) => p[0] + "," + p[1]).join(" "));
+  for (const points of pointStrings) {
+    parts.push('<polygon class="outside" points="' + points + '"/>');
+  }
+  let pixelCount = 0;
+  for (const row of sample.rows) {
+    const y = row[0];
+    for (const seg of row[1]) {
+      for (let i = seg[0]; i <= seg[1]; i++) {
+        parts.push('<rect class="px" data-pixel="' + i + "," + y + '" x="' + (i - 0.5) +
+                   '" y="' + (y - 0.5) + '" width="1" height="1"/>');
+        pixelCount++;
+      }
+    }
+  }
+  parts.push('<defs><clipPath id="canvas-clip"><rect x="-0.5" y="-0.5" width="' + W + '" height="' + H + '"/></clipPath></defs>');
+  parts.push('<g clip-path="url(#canvas-clip)">');
+  for (const points of pointStrings) {
+    parts.push('<polygon class="clipped" points="' + points + '"/>');
+  }
+  parts.push("</g>");
+  parts.push('<rect class="canvas-border" x="-0.5" y="-0.5" width="' + W + '" height="' + H + '"/>');
+  stage.innerHTML = parts.join("");
+
+  const { rows, ok } = statRows(sample, pixelCount);
+  stats.innerHTML = rows.map(([k, v], i) =>
+    '<tr><td>' + k + '</td><td' + (i === rows.length - 1 && !ok ? ' class="bad"' : "") +
+    ">" + v + "</td></tr>").join("");
+}
+
+const sample = pickSample();
+buildNav(sample);
+render(sample);
+
+const hover = document.getElementById("hover");
+document.getElementById("stage").addEventListener("mouseover", (event) => {
+  const tag = event.target.getAttribute("data-pixel");
+  hover.textContent = tag ? "像素 (" + tag.replace(",", ", ") + ")" : "";
+});
+</script>
+</body>
+</html>
